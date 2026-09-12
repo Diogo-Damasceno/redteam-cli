@@ -58,6 +58,10 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--out", required=True)
     rp.add_argument("--llm", choices=["auto", "api", "offline"], default="auto")
 
+    d = sub.add_parser("dashboard", help="sobe dashboard local dos achados")
+    d.add_argument("--host", default="127.0.0.1")
+    d.add_argument("--port", type=int, default=8765)
+
     return p
 
 
@@ -211,6 +215,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_run(args)
     if args.cmd == "report":
         return cmd_report(args)
+    if args.cmd == "dashboard":
+        from .core.dashboard import serve
+        serve(args.db, host=args.host, port=args.port)
+        return 0
     return 1
 
 
