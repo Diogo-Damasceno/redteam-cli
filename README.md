@@ -33,7 +33,11 @@ git clone https://github.com/Diogo-Damasceno/redteam-cli.git
 cd redteam-cli
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
+redteam list
 ```
+
+> Em Arch/Fedora (PEP 668) o `pip` do sistema é bloqueado — use sempre o venv
+> acima, não `--break-system-packages`.
 
 Dependências: só stdlib. `cryptography` é opcional (sem ela, o módulo de
 ransomware usa um fallback didático com HMAC).
@@ -71,7 +75,14 @@ redteam run ransomware --sandbox /tmp/lab-box --opt decrypt=true
 
 # vetores físicos + controles
 redteam run physical
+
+# dashboard local dos achados
+redteam dashboard --port 8765     # http://127.0.0.1:8765
 ```
+
+O dashboard lê o mesmo `redteam.db` e mostra: contagem por severidade, barra
+de distribuição, execuções e a lista de achados. Também expõe
+`/api/findings.json` e `/api/export.csv` para integrar com outras ferramentas.
 
 Cada execução grava achados em `redteam.db`, ações em `audit.jsonl` e gera um
 relatório `.md` (opcionalmente `.json` com `--json`).
