@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# artefatos de execucao (nao versionar)
+redteam.db
+audit.jsonl
+relatorio-*.md
+relatorio-*.json
+lab/target/lab.db
+labdata/
+
+# segredos
+.env
+targets.txt
