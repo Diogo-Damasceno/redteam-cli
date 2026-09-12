@@ -42,6 +42,51 @@ fazem isso de forma **observável e reversível** (veja abaixo).
 
 ---
 
+
+## Fluxo de execução
+
+```mermaid
+flowchart TD
+    A["redteam run"] --> B["Registry: localizar módulo"]
+    B --> C{"Requer alvo de rede?"}
+    C -->|Sim| D{"TargetPolicy permite?"}
+    D -->|Não| E["Bloquear e encerrar"]
+    D -->|Sim| F["Iniciar run no SQLite"]
+    C -->|Não| F
+    F --> G["Executar módulo e controles específicos"]
+    G --> H{"Execução concluída?"}
+    H -->|Não| I["Marcar run como falho"]
+    H -->|Sim| J["Persistir achados e finalizar run"]
+    J --> K{"Achados e análise habilitada?"}
+    K -->|Sim| L["Análise API ou offline"]
+    K -->|Não| M["Gerar relatório"]
+    L --> M
+    classDef accent fill:#30131b,stroke:#ef4444,color:#fff;
+    classDef neutral fill:#18181b,stroke:#71717a,color:#fff;
+    class A,G,J,M accent;
+    class B,C,D,E,F,H,I,K,L neutral;
+```
+
+A política aceita a allowlist explícita e endereços loopback/RFC1918.
+A CLI inclui o alvo na allowlist quando recebe `--i-own-it`; para carregar um
+arquivo, use `--targets targets.txt`. Redes privadas não comprovam propriedade:
+a autorização continua sendo responsabilidade do operador.
+
+Módulos sem alvo de rede pulam essa validação na CLI. A simulação de ransomware
+tem controles específicos de sandbox e confirmação; o diagrama não representa
+uma garantia de isolamento do sistema operacional.
+
+## Onde ficam os resultados?
+
+| Saída | Conteúdo | Como consultar |
+|---|---|---|
+| `redteam.db` | Execuções e achados persistidos em SQLite | Dashboard ou comando `report` |
+| `audit.jsonl` | Eventos registrados pelos controles e módulos | Inspeção local do JSONL |
+| `relatorio-<modulo>-<id>.md` | Achados, severidade e análise opcional | Leitor Markdown; caminho personalizável com `--out` |
+| `.json` | Achados e metadados estruturados | Gerado com `--json` |
+| Dashboard local | Distribuição de severidades, runs e achados | `http://127.0.0.1:8765` |
+| Exportações do dashboard | Achados para integração | `/api/findings.json` e `/api/export.csv` |
+
 ## Instalação
 
 ```bash
@@ -130,9 +175,30 @@ quebra. Segredos são removidos do prompt antes do envio (`redact()`).
 
 ## Arquitetura
 
+```mermaid
+flowchart TD
+    CLI["cli.py: comandos"] --> REG["registry.py: módulos"]
+    CLI --> CTX["Ctx: contexto compartilhado"]
+    REG --> MOD["Módulo selecionado"]
+    CTX --> MOD
+    MOD --> GUARD["Política, sandbox e auditoria"]
+    MOD --> FIND["Achados"]
+    FIND --> DB["storage.py: SQLite"]
+    FIND --> REP["report.py: Markdown e JSON"]
+    REP --> LLM["llm.py: análise opcional"]
+    DB --> DASH["dashboard.py: interface e exportações"]
+    DB --> REGEN["Comando report"]
+    REGEN --> REP
+    classDef accent fill:#30131b,stroke:#ef4444,color:#fff;
+    class CLI,MOD,REP,DASH accent;
+```
+
+<details>
+<summary>Mapa dos arquivos-fonte</summary>
+
 ```
 src/redteam/
-├── cli.py              # argparse: list / run / report
+├── cli.py              # argparse: list / run / report / dashboard
 ├── core/
 │   ├── guardrails.py   # política de alvo, sandbox, auditoria  ← a linha ética
 │   ├── registry.py     # descoberta de módulos
@@ -144,8 +210,10 @@ src/redteam/
 └── modules/            # recon, sqli, stuffing, crypto, ransomware, physical
 ```
 
-Todo módulo chama `ctx.check_target()` antes de agir. A decisão de "pode ou não
-tocar" está em **um lugar só**, testável.
+</details>
+
+A CLI chama `ctx.check_target()` para módulos com `requires_target=True`.
+A política de alvo fica centralizada em `guardrails.py`.
 
 ## Testes
 
