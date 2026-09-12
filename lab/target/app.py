@@ -10,7 +10,7 @@ import time
 from flask import Flask, g, jsonify, request
 
 app = Flask(__name__)
-DB = os.getenv("LAB_DB", "/data/lab.db")
+DB = os.getenv("LAB_DB", "./lab.db")
 FLAG = os.getenv("LAB_FLAG", "RT{lab_local_apenas}")
 
 
@@ -21,7 +21,9 @@ def db():
 
 
 def init():
-    os.makedirs(os.path.dirname(DB), exist_ok=True)
+    parent = os.path.dirname(os.path.abspath(DB))
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent, exist_ok=True)
     c = sqlite3.connect(DB)
     c.execute("""CREATE TABLE IF NOT EXISTS users(
         id INTEGER PRIMARY KEY, username TEXT, password TEXT, email TEXT)""")
