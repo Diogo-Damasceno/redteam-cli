@@ -15,3 +15,8 @@ labdata/
 # segredos
 .env
 targets.txt
+
+# bytecode
+__pycache__/
+**/__pycache__/
+*.pyc
