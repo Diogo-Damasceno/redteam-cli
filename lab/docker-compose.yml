@@ -1,0 +1,14 @@
+services:
+  target:
+    build: .
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - labdata:/data
+    environment:
+      LAB_DB: /data/lab.db
+      LAB_FLAG: RT{lab_local_apenas}
+    restart: unless-stopped
+
+volumes:
+  labdata:
