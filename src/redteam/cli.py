@@ -49,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--sandbox", help="diretorio sandbox para modulos destrutivos")
     r.add_argument("--out", help="arquivo .md do relatorio")
     r.add_argument("--json", action="store_true", help="tambem salva .json")
-    r.add_argument("--llm", choices=["auto", "api", "offline"], default="auto")
+    r.add_argument("--llm", choices=["auto", "api", "offline", "anthropic", "openai"], default="auto")
     r.add_argument("--no-llm", action="store_true", help="pula analise por LLM")
     r.add_argument("-v", "--verbose", action="store_true")
     r.add_argument("--opt", action="append", default=[],
@@ -58,11 +58,17 @@ def build_parser() -> argparse.ArgumentParser:
     rp = sub.add_parser("report", help="regenera relatorio de um run")
     rp.add_argument("run_id", type=int)
     rp.add_argument("--out", required=True)
-    rp.add_argument("--llm", choices=["auto", "api", "offline"], default="auto")
+    rp.add_argument("--llm", choices=["auto", "api", "offline", "anthropic", "openai"], default="auto")
 
     d = sub.add_parser("dashboard", help="sobe dashboard local dos achados")
     d.add_argument("--host", default="127.0.0.1")
     d.add_argument("--port", type=int, default=8765)
+
+    l = sub.add_parser("llm", help="mostra/diagnostica o adaptador de LLM")
+    l.add_argument("--ping", action="store_true",
+                   help="faz uma chamada real de teste ao provedor")
+    l.add_argument("--provider", choices=["auto", "openai", "anthropic", "offline"],
+                   default="auto")
 
     return p
 
@@ -209,6 +215,44 @@ def cmd_report(args) -> int:
     return 0
 
 
+def cmd_llm(args) -> int:
+    """Mostra qual adaptador sera usado e, com --ping, testa a chamada."""
+    from .core.llm import (AnthropicClient, OfflineClient, OpenAICompatClient,
+                           get_client, redact)
+
+    c = get_client(args.provider)
+    nome = type(c).__name__
+    print(f"  provedor : {args.provider}")
+    print(f"  adapter  : {nome}")
+    print(f"  modelo   : {c.model}")
+
+    if isinstance(c, OpenAICompatClient):
+        print(f"  base_url : {c.base_url}")
+        print(f"  api_key  : {'configurada' if c.available() else 'AUSENTE'}")
+    elif isinstance(c, AnthropicClient):
+        print(f"  base_url : {c.base_url or '(default anthropic)'}")
+        print(f"  api_key  : {'configurada' if c.available() else 'AUSENTE'}")
+    else:
+        print("  modo     : offline (heuristica local, sem rede)")
+
+    if not args.ping:
+        print("\n  dicas:")
+        print("    export OPENROUTER_API_KEY=...   # OpenRouter (default)")
+        print("    export ANTHROPIC_API_KEY=...    # Claude via SDK anthropic")
+        print("    redteam llm --ping              # testa a chamada")
+        return 0
+
+    print("\n  enviando chamada de teste...")
+    resp = c.complete(
+        "Responda sempre em portugues do Brasil.",
+        '{"target":"127.0.0.1","findings":[]}',
+        timeout=30.0,
+    )
+    print("  resposta:")
+    print("    " + redact(resp).replace("\n", "\n    ")[:800])
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
@@ -226,6 +270,8 @@ def main(argv: list[str] | None = None) -> int:
         from .core.dashboard import serve
         serve(args.db, host=args.host, port=args.port)
         return 0
+    if args.cmd == "llm":
+        return cmd_llm(args)
     return 1
 
 

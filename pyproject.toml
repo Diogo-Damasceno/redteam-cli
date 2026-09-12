@@ -12,6 +12,9 @@ license = { text = "MIT" }
 authors = [{ name = "Diogo Damasceno" }]
 dependencies = []
 
+[project.optional-dependencies]
+llm = ["openai>=1.40", "anthropic>=0.34"]
+
 [project.scripts]
 redteam = "redteam.cli:main"
 
