@@ -41,6 +41,25 @@ def is_lab_address(host: str) -> bool:
     return any(addr in net for net in LAB_NETWORKS)
 
 
+def normalize_host(value: str) -> str:
+    """Extrai o host de uma URL ('http://127.0.0.1:8080/x' -> '127.0.0.1').
+
+    A politica compara ENDERECO, nao URL: sem isso qualquer alvo com
+    esquema/porta cai no 'fora do escopo' mesmo sendo loopback.
+    """
+    v = (value or "").strip()
+    if "://" in v:
+        v = v.split("://", 1)[1]
+    v = v.split("/", 1)[0]
+    if "@" in v:  # user:pass@host
+        v = v.rsplit("@", 1)[1]
+    if v.startswith("["):  # IPv6 [::1]:8080
+        return v[1:].split("]", 1)[0]
+    if ":" in v:
+        v = v.rsplit(":", 1)[0]
+    return v
+
+
 def _resolve(host: str) -> Optional[str]:
     import socket
 
@@ -59,11 +78,12 @@ class TargetPolicy:
     require_confirm: bool = True
 
     def allows(self, host: str) -> tuple[bool, str]:
-        if host in self.allowlist:
+        host_norm = normalize_host(host)
+        if host in self.allowlist or host_norm in self.allowlist:
             return True, "allowlist"
 
-        resolved = _resolve(host)
-        addr = resolved or host
+        resolved = _resolve(host_norm)
+        addr = resolved or host_norm
         if self.lab_only:
             if not is_lab_address(addr):
                 return False, (
