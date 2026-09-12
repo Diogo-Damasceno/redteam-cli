@@ -14,6 +14,7 @@ import json
 import sys
 from pathlib import Path
 
+from .banner import print_banner
 from .core.context import Ctx
 from .core.guardrails import (
     GuardrailError,
@@ -33,6 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Framework CLI de red team para laboratorio (alvo fake/local)",
     )
     p.add_argument("--db", default="redteam.db", help="arquivo SQLite de achados")
+    p.add_argument("--no-banner", action="store_true", help="oculta o banner ASCII")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("list", help="lista os modulos disponiveis")
@@ -209,6 +211,11 @@ def cmd_report(args) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if not args.no_banner:
+        use_color = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+        print_banner(color=use_color)
+
     if args.cmd == "list":
         return cmd_list(args)
     if args.cmd == "run":
